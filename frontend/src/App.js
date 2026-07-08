@@ -7,6 +7,8 @@ import Dashboard from './pages/Dashboard';
 import Workspace from './pages/Workspace';
 import BoardList from './pages/BoardList';
 import Board from './pages/Board';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 
 const PrivateRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -28,6 +30,8 @@ function AppRoutes() {
       <Route path="/workspace/:workspaceId" element={<PrivateRoute><BoardList /></PrivateRoute>} />
       <Route path="/board/:boardId" element={<PrivateRoute><Board /></PrivateRoute>} />
       <Route path="*" element={<Navigate to="/login" />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password/:token" element={<ResetPassword />} />
     </Routes>
   );
 }
