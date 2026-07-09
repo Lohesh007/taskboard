@@ -6,6 +6,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     navigate('/workspaces');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return null;

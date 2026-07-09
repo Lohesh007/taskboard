@@ -11,6 +11,7 @@ export default function BoardList() {
 
   useEffect(() => {
     fetchWorkspace();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workspaceId]);
 
   const fetchWorkspace = async () => {

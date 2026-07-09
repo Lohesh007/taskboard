@@ -22,11 +22,12 @@ export default function Board() {
 
   useEffect(() => {
     fetchBoard();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [boardId]);
 
-  // WebSocket for real-time updates
   useEffect(() => {
     if (!workspaceId) return;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     const ws = new WebSocket(`wss://taskboard-production-f6df.up.railway.app/ws/workspace/${workspaceId}/`);
 
     ws.onmessage = (e) => {
