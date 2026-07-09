@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/exhaustive-deps */
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import api from '../api/axios';
@@ -21,13 +21,22 @@ export default function Board() {
   const [newCardTitles, setNewCardTitles] = useState({});
   const [addingCard, setAddingCard] = useState(null);
 
-  useEffect(() => {
-    fetchBoard();
+  // ✅ fetchBoard defined BEFORE useEffect
+  const fetchBoard = useCallback(async () => {
+    try {
+      const res = await api.get(`/workspaces/boards/${boardId}/`);
+      setBoard(res.data);
+    } catch {
+      toast.error('Failed to load board');
+    }
   }, [boardId]);
 
   useEffect(() => {
+    fetchBoard();
+  }, [fetchBoard]);
+
+  useEffect(() => {
     if (!workspaceId) return;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     const ws = new WebSocket(`wss://taskboard-production-f6df.up.railway.app/ws/workspace/${workspaceId}/`);
 
     ws.onmessage = (e) => {
@@ -76,15 +85,6 @@ export default function Board() {
     return () => ws.close();
   }, [workspaceId]);
 
-  const fetchBoard = async () => {
-    try {
-      const res = await api.get(`/workspaces/boards/${boardId}/`);
-      setBoard(res.data);
-    } catch {
-      toast.error('Failed to load board');
-    }
-  };
-
   const handleDragEnd = async (result) => {
     const { destination, source, draggableId } = result;
     if (!destination) return;
@@ -94,7 +94,6 @@ export default function Board() {
     const cardId = parseInt(draggableId);
     const newColumnId = parseInt(destination.droppableId);
 
-    // Optimistic UI update
     setBoard((prev) => {
       const newColumns = prev.columns.map((col) => ({
         ...col,
@@ -116,12 +115,11 @@ export default function Board() {
       };
     });
 
-    // API call
     try {
       await api.put(`/workspaces/cards/${cardId}/`, { column: newColumnId });
     } catch {
       toast.error('Failed to move card');
-      fetchBoard(); // revert on error
+      fetchBoard();
     }
   };
 
@@ -158,7 +156,6 @@ export default function Board() {
 
   return (
     <div className="min-h-screen bg-gray-900 text-white p-6">
-      {/* Header */}
       <div className="flex items-center gap-4 mb-8">
         <button
           onClick={() => navigate(`/workspace/${workspaceId}`)}
@@ -169,7 +166,6 @@ export default function Board() {
         <h1 className="text-2xl font-bold">{board.name}</h1>
       </div>
 
-      {/* Kanban Board */}
       <DragDropContext onDragEnd={handleDragEnd}>
         <div className="flex gap-6 overflow-x-auto pb-6">
           {board.columns.map((column) => (
@@ -177,7 +173,6 @@ export default function Board() {
               key={column.id}
               className="bg-gray-800 rounded-2xl p-4 min-w-72 w-72 flex-shrink-0"
             >
-              {/* Column Header */}
               <div className="flex justify-between items-center mb-4">
                 <h2 className="font-bold text-lg">{column.name}</h2>
                 <span className="bg-gray-700 text-gray-300 text-xs px-2 py-1 rounded-full">
@@ -185,7 +180,6 @@ export default function Board() {
                 </span>
               </div>
 
-              {/* Cards */}
               <Droppable droppableId={String(column.id)}>
                 {(provided, snapshot) => (
                   <div
@@ -237,7 +231,6 @@ export default function Board() {
                 )}
               </Droppable>
 
-              {/* Add Card */}
               {addingCard === column.id ? (
                 <div className="mt-2">
                   <input

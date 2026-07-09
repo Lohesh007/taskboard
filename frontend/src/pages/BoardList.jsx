@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/exhaustive-deps */
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 import toast from 'react-hot-toast';
@@ -10,18 +10,19 @@ export default function BoardList() {
   const [newBoardName, setNewBoardName] = useState('');
   const navigate = useNavigate();
 
-  useEffect(() => {
-    fetchWorkspace();
-  }, [workspaceId]);
-
-  const fetchWorkspace = async () => {
+  // ✅ fetchWorkspace defined BEFORE useEffect
+  const fetchWorkspace = useCallback(async () => {
     try {
       const res = await api.get(`/workspaces/${workspaceId}/`);
       setWorkspace(res.data);
     } catch {
       toast.error('Failed to load workspace');
     }
-  };
+  }, [workspaceId]);
+
+  useEffect(() => {
+    fetchWorkspace();
+  }, [fetchWorkspace]);
 
   const createBoard = async (e) => {
     e.preventDefault();
@@ -49,7 +50,6 @@ export default function BoardList() {
 
   return (
     <div className="min-h-screen bg-gray-900 text-white p-8">
-      {/* Header */}
       <div className="flex items-center gap-4 mb-10">
         <button
           onClick={() => navigate('/dashboard')}
@@ -60,7 +60,6 @@ export default function BoardList() {
         <h1 className="text-3xl font-bold">{workspace.name}</h1>
       </div>
 
-      {/* Create Board */}
       <form onSubmit={createBoard} className="flex gap-3 mb-10">
         <input
           value={newBoardName}
@@ -76,7 +75,6 @@ export default function BoardList() {
         </button>
       </form>
 
-      {/* Board List */}
       {workspace.boards?.length === 0 ? (
         <div className="bg-gray-800 rounded-2xl p-12 text-center">
           <p className="text-gray-400 text-lg">No boards yet. Create one above!</p>

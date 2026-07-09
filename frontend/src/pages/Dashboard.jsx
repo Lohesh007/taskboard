@@ -7,7 +7,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     navigate('/workspaces');
-  }, []);
+  }, [navigate]);
 
   return null;
 }
