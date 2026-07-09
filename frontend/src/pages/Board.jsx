@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 import { useState, useEffect } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
@@ -22,7 +23,6 @@ export default function Board() {
 
   useEffect(() => {
     fetchBoard();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [boardId]);
 
   useEffect(() => {

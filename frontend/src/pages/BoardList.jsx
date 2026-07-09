@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../api/axios';
@@ -11,7 +12,6 @@ export default function BoardList() {
 
   useEffect(() => {
     fetchWorkspace();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workspaceId]);
 
   const fetchWorkspace = async () => {
