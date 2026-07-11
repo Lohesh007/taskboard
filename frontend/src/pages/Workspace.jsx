@@ -9,6 +9,12 @@ export default function Workspace() {
   const [newName, setNewName] = useState('');
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [selectedWorkspace, setSelectedWorkspace] = useState(null);
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteRole, setInviteRole] = useState('member');
+  const [inviting, setInviting] = useState(false);
+  const [members, setMembers] = useState([]);
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
@@ -43,6 +49,38 @@ export default function Workspace() {
     }
   };
 
+  const openInviteModal = async (ws) => {
+    setSelectedWorkspace(ws);
+    setShowInviteModal(true);
+    try {
+      const res = await api.get(`/workspaces/${ws.id}/members/`);
+      setMembers(res.data);
+    } catch {
+      toast.error('Failed to load members');
+    }
+  };
+
+  const handleInvite = async (e) => {
+    e.preventDefault();
+    if (!inviteEmail.trim()) return;
+    setInviting(true);
+    try {
+      await api.post(`/workspaces/${selectedWorkspace.id}/invite/`, {
+        email: inviteEmail,
+        role: inviteRole,
+      });
+      toast.success(`Invitation sent to ${inviteEmail}!`);
+      setInviteEmail('');
+      // Refresh members
+      const res = await api.get(`/workspaces/${selectedWorkspace.id}/members/`);
+      setMembers(res.data);
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to send invite');
+    } finally {
+      setInviting(false);
+    }
+  };
+
   const handleLogout = () => {
     logout();
     navigate('/login');
@@ -56,6 +94,12 @@ export default function Workspace() {
     'from-green-500 to-teal-600',
     'from-yellow-500 to-orange-600',
   ];
+
+  const roleColors = {
+    admin: 'text-red-400 bg-red-500/10 border-red-500/20',
+    member: 'text-indigo-400 bg-indigo-500/10 border-indigo-500/20',
+    viewer: 'text-gray-400 bg-gray-500/10 border-gray-500/20',
+  };
 
   return (
     <div className="min-h-screen bg-[#0f0f1a] text-white">
@@ -93,7 +137,6 @@ export default function Workspace() {
 
       {/* Main Content */}
       <div className="relative max-w-6xl mx-auto px-6 py-10">
-        {/* Header */}
         <div className="mb-10">
           <h1 className="text-4xl font-black mb-2">
             Your Workspaces
@@ -143,25 +186,39 @@ export default function Workspace() {
             {workspaces.map((ws, index) => (
               <div
                 key={ws.id}
-                onClick={() => navigate(`/workspace/${ws.id}`)}
-                className="group bg-white/5 border border-white/10 hover:border-indigo-500/50 rounded-2xl overflow-hidden cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl hover:shadow-indigo-500/10 backdrop-blur-xl"
+                className="group bg-white/5 border border-white/10 hover:border-indigo-500/50 rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-2xl hover:shadow-indigo-500/10 backdrop-blur-xl"
               >
-                {/* Color Banner */}
                 <div className={`h-2 bg-gradient-to-r ${colors[index % colors.length]}`} />
                 <div className="p-6">
                   <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${colors[index % colors.length]} flex items-center justify-center text-2xl mb-4 shadow-lg`}>
                     🏢
                   </div>
-                  <h2 className="text-xl font-bold mb-3 group-hover:text-indigo-300 transition">
+                  <h2 className="text-xl font-bold mb-1 group-hover:text-indigo-300 transition">
                     {ws.name}
                   </h2>
-                  <div className="flex items-center gap-4 text-sm text-gray-400">
-                    <span className="flex items-center gap-1">
-                      👥 {ws.members_detail?.length} member{ws.members_detail?.length !== 1 ? 's' : ''}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      📋 {ws.boards?.length} board{ws.boards?.length !== 1 ? 's' : ''}
-                    </span>
+                  <div className="flex items-center gap-4 text-sm text-gray-400 mb-4">
+                    <span>👥 {ws.members_detail?.length} member{ws.members_detail?.length !== 1 ? 's' : ''}</span>
+                    <span>📋 {ws.boards?.length} board{ws.boards?.length !== 1 ? 's' : ''}</span>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => navigate(`/workspace/${ws.id}`)}
+                      className="flex-1 bg-indigo-600/20 hover:bg-indigo-600/40 border border-indigo-500/30 text-indigo-300 hover:text-white font-semibold py-2 rounded-xl text-sm transition"
+                    >
+                      Open →
+                    </button>
+                    {/* Show invite button only for admins */}
+                    {ws.members_detail?.find(m => m.user.id === user?.id)?.role === 'admin' && (
+                      <button
+                        onClick={() => openInviteModal(ws)}
+                        className="bg-purple-600/20 hover:bg-purple-600/40 border border-purple-500/30 text-purple-300 hover:text-white font-semibold px-3 py-2 rounded-xl text-sm transition"
+                        title="Invite Members"
+                      >
+                        👥 Invite
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -169,6 +226,117 @@ export default function Workspace() {
           </div>
         )}
       </div>
+
+      {/* Invite Modal */}
+      {showInviteModal && selectedWorkspace && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#1a1a2e] border border-white/10 rounded-3xl p-8 w-full max-w-lg shadow-2xl">
+            {/* Modal Header */}
+            <div className="flex justify-between items-center mb-6">
+              <div>
+                <h2 className="text-2xl font-bold text-white">Invite Members</h2>
+                <p className="text-gray-400 text-sm mt-1">
+                  to <span className="text-indigo-400">{selectedWorkspace.name}</span>
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowInviteModal(false);
+                  setInviteEmail('');
+                  setMembers([]);
+                }}
+                className="text-gray-400 hover:text-white transition bg-white/5 hover:bg-white/10 rounded-xl p-2"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Invite Form */}
+            <form onSubmit={handleInvite} className="mb-6">
+              <div className="space-y-3">
+                <div>
+                  <label className="text-gray-300 text-xs font-semibold uppercase tracking-wider mb-1 block">
+                    Email Address
+                  </label>
+                  <input
+                    type="email"
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                    placeholder="teammate@example.com"
+                    required
+                    className="w-full bg-white/5 border border-white/10 text-white rounded-xl px-4 py-3 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition placeholder-gray-600"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-gray-300 text-xs font-semibold uppercase tracking-wider mb-1 block">
+                    Role
+                  </label>
+                  <select
+                    value={inviteRole}
+                    onChange={(e) => setInviteRole(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 text-white rounded-xl px-4 py-3 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition"
+                  >
+                    <option value="member" className="bg-gray-900">Member — Can create and edit cards</option>
+                    <option value="viewer" className="bg-gray-900">Viewer — Can only view boards</option>
+                    <option value="admin" className="bg-gray-900">Admin — Full access</option>
+                  </select>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={inviting}
+                  className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold py-3 rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 shadow-lg shadow-indigo-500/30"
+                >
+                  {inviting ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                      </svg>
+                      Sending invite...
+                    </span>
+                  ) : (
+                    '📧 Send Invitation'
+                  )}
+                </button>
+              </div>
+            </form>
+
+            {/* Current Members */}
+            {members.length > 0 && (
+              <div>
+                <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">
+                  Current Members ({members.length})
+                </h3>
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {members.map((member) => (
+                    <div
+                      key={member.id}
+                      className="flex items-center justify-between bg-white/5 border border-white/10 rounded-xl px-4 py-3"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-indigo-600/30 rounded-lg flex items-center justify-center text-sm">
+                          {member.user.avatar}
+                        </div>
+                        <div>
+                          <p className="text-white text-sm font-medium">
+                            {member.user.username}
+                          </p>
+                          <p className="text-gray-500 text-xs">{member.user.email}</p>
+                        </div>
+                      </div>
+                      <span className={`px-2 py-1 rounded-lg text-xs font-bold border capitalize ${roleColors[member.role]}`}>
+                        {member.role}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
