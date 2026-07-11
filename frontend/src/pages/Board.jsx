@@ -23,11 +23,18 @@ export default function Board() {
   const workspaceId = searchParams.get('workspace');
   const navigate = useNavigate();
 
+  // ✅ ALL STATES AT TOP
   const [board, setBoard] = useState(null);
   const [newCardTitles, setNewCardTitles] = useState({});
   const [addingCard, setAddingCard] = useState(null);
   const [connected, setConnected] = useState(false);
+  const [showActivity, setShowActivity] = useState(false);
+  const [activityLog, setActivityLog] = useState([]);
+  const [selectedCard, setSelectedCard] = useState(null);
+  const [editingCard, setEditingCard] = useState({});
+  const [savingCard, setSavingCard] = useState(false);
 
+  // ✅ ALL FUNCTIONS BEFORE EFFECTS
   const fetchBoard = useCallback(async () => {
     try {
       const res = await api.get(`/workspaces/boards/${boardId}/`);
@@ -37,61 +44,29 @@ export default function Board() {
     }
   }, [boardId]);
 
-  useEffect(() => {
-    fetchBoard();
-  }, [fetchBoard]);
-
-  useEffect(() => {
-    if (!workspaceId) return;
-    const ws = new WebSocket(`wss://taskboard-production-f6df.up.railway.app/ws/workspace/${workspaceId}/`);
-
-    ws.onopen = () => setConnected(true);
-    ws.onclose = () => setConnected(false);
-
-    ws.onmessage = (e) => {
-      const data = JSON.parse(e.data);
-      if (data.event === 'card_created') {
-        setBoard((prev) => {
-          if (!prev) return prev;
-          return {
-            ...prev,
-            columns: prev.columns.map((col) =>
-              col.id === data.payload.column
-                ? { ...col, cards: [...col.cards, data.payload] }
-                : col
-            ),
-          };
-        });
-      }
-      if (data.event === 'card_updated') {
-        setBoard((prev) => {
-          if (!prev) return prev;
-          return {
-            ...prev,
-            columns: prev.columns.map((col) => ({
-              ...col,
-              cards: col.id === data.payload.column
-                ? [...col.cards.filter(c => c.id !== data.payload.id), data.payload]
-                : col.cards.filter(c => c.id !== data.payload.id),
-            })),
-          };
-        });
-      }
-      if (data.event === 'card_deleted') {
-        setBoard((prev) => {
-          if (!prev) return prev;
-          return {
-            ...prev,
-            columns: prev.columns.map((col) => ({
-              ...col,
-              cards: col.cards.filter((c) => c.id !== data.payload.id),
-            })),
-          };
-        });
-      }
-    };
-    return () => ws.close();
+  const fetchActivity = useCallback(async () => {
+    try {
+      const res = await api.get(`/workspaces/${workspaceId}/activity/`);
+      setActivityLog(res.data);
+    } catch {
+      console.log('Failed to load activity');
+    }
   }, [workspaceId]);
+
+  const updateCard = async () => {
+    setSavingCard(true);
+    try {
+      await api.put(`/workspaces/cards/${selectedCard.id}/`, editingCard);
+      toast.success('Card updated!');
+      setSelectedCard(null);
+      fetchBoard();
+      fetchActivity();
+    } catch {
+      toast.error('Failed to update card');
+    } finally {
+      setSavingCard(false);
+    }
+  };
 
   const handleDragEnd = async (result) => {
     const { destination, source, draggableId } = result;
@@ -123,6 +98,7 @@ export default function Board() {
 
     try {
       await api.put(`/workspaces/cards/${cardId}/`, { column: newColumnId });
+      fetchActivity();
     } catch {
       toast.error('Failed to move card');
       fetchBoard();
@@ -140,6 +116,7 @@ export default function Board() {
       setNewCardTitles((prev) => ({ ...prev, [columnId]: '' }));
       setAddingCard(null);
       toast.success('Card added!');
+      fetchActivity();
     } catch {
       toast.error('Failed to add card');
     }
@@ -149,11 +126,75 @@ export default function Board() {
     try {
       await api.delete(`/workspaces/cards/${cardId}/`);
       toast.success('Card deleted');
+      fetchActivity();
     } catch {
       toast.error('Failed to delete card');
     }
   };
 
+  // ✅ ALL EFFECTS AFTER FUNCTIONS
+  useEffect(() => {
+    fetchBoard();
+    fetchActivity();
+  }, [fetchBoard, fetchActivity]);
+
+  useEffect(() => {
+    if (!workspaceId) return;
+    const ws = new WebSocket(`wss://taskboard-production-f6df.up.railway.app/ws/workspace/${workspaceId}/`);
+
+    ws.onopen = () => setConnected(true);
+    ws.onclose = () => setConnected(false);
+
+    ws.onmessage = (e) => {
+      const data = JSON.parse(e.data);
+      if (data.event === 'card_created') {
+        setBoard((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            columns: prev.columns.map((col) =>
+              col.id === data.payload.column
+                ? { ...col, cards: [...col.cards, data.payload] }
+                : col
+            ),
+          };
+        });
+        fetchActivity();
+      }
+      if (data.event === 'card_updated') {
+        setBoard((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            columns: prev.columns.map((col) => ({
+              ...col,
+              cards: col.id === data.payload.column
+                ? [...col.cards.filter(c => c.id !== data.payload.id), data.payload]
+                : col.cards.filter(c => c.id !== data.payload.id),
+            })),
+          };
+        });
+        fetchActivity();
+      }
+      if (data.event === 'card_deleted') {
+        setBoard((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            columns: prev.columns.map((col) => ({
+              ...col,
+              cards: col.cards.filter((c) => c.id !== data.payload.id),
+            })),
+          };
+        });
+        fetchActivity();
+      }
+    };
+
+    return () => ws.close();
+  }, [workspaceId]);
+
+  // ✅ EARLY RETURN AFTER ALL HOOKS
   if (!board) return (
     <div className="min-h-screen bg-[#0f0f1a] flex items-center justify-center">
       <div className="text-center">
@@ -187,13 +228,19 @@ export default function Board() {
             <div className="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/30">
               <span className="text-lg">⚡</span>
             </div>
-            <span className="text-xl font-black tracking-tight">
+            <span className="text-xl font-black tracking-tight hidden sm:block">
               Task<span className="text-indigo-400">Board</span>
             </span>
           </div>
           <div className="h-5 w-px bg-white/20" />
           <h1 className="text-lg font-bold text-white">{board.name}</h1>
           <div className="ml-auto flex items-center gap-2">
+            <button
+              onClick={() => setShowActivity(!showActivity)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border bg-white/5 border-white/10 text-gray-300 hover:text-white hover:border-white/20 transition"
+            >
+              📋 Activity
+            </button>
             <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border ${
               connected
                 ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
@@ -209,13 +256,13 @@ export default function Board() {
       {/* Kanban Board */}
       <div className="relative p-6">
         <DragDropContext onDragEnd={handleDragEnd}>
-          <div className="flex gap-6 overflow-x-auto pb-6">
+          <div className="flex gap-4 overflow-x-auto pb-6 snap-x snap-mandatory">
             {board.columns.map((column, colIndex) => {
               const colStyle = COLUMN_COLORS[colIndex % COLUMN_COLORS.length];
               return (
                 <div
                   key={column.id}
-                  className={`bg-white/5 backdrop-blur-xl border ${colStyle.border} rounded-2xl p-4 min-w-80 w-80 flex-shrink-0 flex flex-col`}
+                  className={`bg-white/5 backdrop-blur-xl border ${colStyle.border} rounded-2xl p-4 min-w-[300px] w-[300px] md:min-w-80 md:w-80 flex-shrink-0 flex flex-col snap-start`}
                 >
                   {/* Column Header */}
                   <div className="flex justify-between items-center mb-4">
@@ -255,7 +302,16 @@ export default function Board() {
                                   ref={provided.innerRef}
                                   {...provided.draggableProps}
                                   {...provided.dragHandleProps}
-                                  className={`bg-white/8 border border-white/10 rounded-xl p-4 mb-3 cursor-grab active:cursor-grabbing transition-all duration-200 group hover:border-white/20 hover:bg-white/10 ${
+                                  onClick={() => {
+                                    setSelectedCard(card);
+                                    setEditingCard({
+                                      title: card.title,
+                                      description: card.description || '',
+                                      priority: card.priority,
+                                      due_date: card.due_date || '',
+                                    });
+                                  }}
+                                  className={`bg-white/8 border border-white/10 rounded-xl p-4 mb-3 cursor-pointer transition-all duration-200 group hover:border-white/20 hover:bg-white/10 ${
                                     snapshot.isDragging
                                       ? 'shadow-2xl shadow-indigo-500/20 rotate-1 scale-105 border-indigo-500/30'
                                       : ''
@@ -266,7 +322,10 @@ export default function Board() {
                                       {card.title}
                                     </p>
                                     <button
-                                      onClick={() => deleteCard(card.id)}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        deleteCard(card.id);
+                                      }}
                                       className="text-gray-600 hover:text-red-400 transition opacity-0 group-hover:opacity-100 flex-shrink-0 text-xs"
                                     >
                                       ✕
@@ -341,6 +400,133 @@ export default function Board() {
           </div>
         </DragDropContext>
       </div>
+
+      {/* Activity Panel */}
+      {showActivity && (
+        <div className="fixed right-0 top-0 h-full w-80 bg-[#1a1a2e] border-l border-white/10 z-20 flex flex-col shadow-2xl">
+          <div className="p-4 border-b border-white/10 flex justify-between items-center">
+            <h2 className="font-bold text-white">📋 Activity Log</h2>
+            <button
+              onClick={() => setShowActivity(false)}
+              className="text-gray-400 hover:text-white transition bg-white/5 hover:bg-white/10 rounded-lg p-1.5"
+            >
+              ✕
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            {activityLog.length === 0 ? (
+              <p className="text-gray-500 text-sm text-center mt-8">
+                No activity yet
+              </p>
+            ) : (
+              activityLog.map((log) => (
+                <div key={log.id} className="flex gap-3">
+                  <div className="w-8 h-8 bg-indigo-600/30 rounded-lg flex items-center justify-center text-xs flex-shrink-0">
+                    {log.user.avatar}
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-300">{log.message}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {new Date(log.created_at).toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Card Detail Modal */}
+      {selectedCard && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#1a1a2e] border border-white/10 rounded-3xl p-8 w-full max-w-lg shadow-2xl">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-bold text-white">Card Details</h2>
+              <button
+                onClick={() => setSelectedCard(null)}
+                className="text-gray-400 hover:text-white transition bg-white/5 hover:bg-white/10 rounded-xl p-2"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-1 block">
+                  Title
+                </label>
+                <input
+                  value={editingCard.title || ''}
+                  onChange={(e) => setEditingCard({ ...editingCard, title: e.target.value })}
+                  className="w-full bg-white/5 border border-white/10 text-white rounded-xl px-4 py-3 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition"
+                />
+              </div>
+
+              <div>
+                <label className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-1 block">
+                  Description
+                </label>
+                <textarea
+                  value={editingCard.description || ''}
+                  onChange={(e) => setEditingCard({ ...editingCard, description: e.target.value })}
+                  placeholder="Add a description..."
+                  rows={3}
+                  className="w-full bg-white/5 border border-white/10 text-white rounded-xl px-4 py-3 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition placeholder-gray-600 resize-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-1 block">
+                    Priority
+                  </label>
+                  <select
+                    value={editingCard.priority || 'medium'}
+                    onChange={(e) => setEditingCard({ ...editingCard, priority: e.target.value })}
+                    className="w-full bg-white/5 border border-white/10 text-white rounded-xl px-4 py-3 outline-none focus:border-indigo-500 transition"
+                  >
+                    <option value="low" className="bg-gray-900">🟢 Low</option>
+                    <option value="medium" className="bg-gray-900">🟡 Medium</option>
+                    <option value="high" className="bg-gray-900">🔴 High</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-1 block">
+                    Due Date
+                  </label>
+                  <input
+                    type="date"
+                    value={editingCard.due_date || ''}
+                    onChange={(e) => setEditingCard({ ...editingCard, due_date: e.target.value })}
+                    className="w-full bg-white/5 border border-white/10 text-white rounded-xl px-4 py-3 outline-none focus:border-indigo-500 transition"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={updateCard}
+                  disabled={savingCard}
+                  className="flex-1 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold py-3 rounded-xl transition-all hover:scale-[1.02] disabled:opacity-50"
+                >
+                  {savingCard ? 'Saving...' : 'Save Changes'}
+                </button>
+                <button
+                  onClick={() => {
+                    deleteCard(selectedCard.id);
+                    setSelectedCard(null);
+                  }}
+                  className="bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 font-bold px-4 py-3 rounded-xl transition"
+                >
+                  🗑️
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
