@@ -25,6 +25,15 @@ export const AuthProvider = ({ children }) => {
     localStorage.setItem('refresh_token', res.data.refresh);
     const profile = await api.get('/users/profile/');
     setUser(profile.data);
+
+    // Check for pending invite
+    const pendingInvite = localStorage.getItem('pending_invite');
+    if (pendingInvite) {
+      localStorage.removeItem('pending_invite');
+      window.location.href = `/invite/accept/${pendingInvite}`;
+      return profile.data;
+    }
+
     return profile.data;
   };
 

@@ -86,3 +86,26 @@ class ActivityLog(models.Model):
 
     def __str__(self):
         return self.message
+
+import uuid
+
+class WorkspaceInvite(models.Model):
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('accepted', 'Accepted'),
+        ('expired', 'Expired'),
+    ]
+    workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE, related_name='invites')
+    email = models.EmailField()
+    role = models.CharField(max_length=10, choices=[
+        ('admin', 'Admin'),
+        ('member', 'Member'),
+        ('viewer', 'Viewer'),
+    ], default='member')
+    token = models.UUIDField(default=uuid.uuid4, unique=True)
+    invited_by = models.ForeignKey(User, on_delete=models.CASCADE)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.email} → {self.workspace.name} ({self.status})"

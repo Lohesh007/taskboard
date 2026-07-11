@@ -9,6 +9,7 @@ import BoardList from './pages/BoardList';
 import Board from './pages/Board';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
+import AcceptInvite from './pages/AcceptInvite';
 
 const PrivateRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -32,6 +33,7 @@ function AppRoutes() {
       <Route path="*" element={<Navigate to="/login" />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password/:token" element={<ResetPassword />} />
+      <Route path="/invite/accept/:token" element={<AcceptInvite />} />
     </Routes>
   );
 }
