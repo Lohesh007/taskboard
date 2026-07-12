@@ -34,6 +34,11 @@ export default function Board() {
   const [editingCard, setEditingCard] = useState({});
   const [savingCard, setSavingCard] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showAIGenerator, setShowAIGenerator] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [aiCards, setAiCards] = useState([]);
+  const [addingAiCards, setAddingAiCards] = useState(false);
 
   // ✅ ALL FUNCTIONS BEFORE EFFECTS
   const fetchBoard = useCallback(async () => {
@@ -130,6 +135,85 @@ export default function Board() {
       fetchActivity();
     } catch {
       toast.error('Failed to delete card');
+    }
+  };
+
+  const generateCardsWithAI = async () => {
+    if (!aiPrompt.trim()) return;
+    setAiGenerating(true);
+    setAiCards([]);
+    try {
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': process.env.REACT_APP_CLAUDE_API_KEY,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-6',
+          max_tokens: 1000,
+          messages: [{
+            role: 'user',
+            content: `You are a project management assistant. Based on this project description, generate 5-8 tasks as Kanban cards.
+
+Project: "${aiPrompt}"
+
+Respond ONLY with a valid JSON array, no markdown, no explanation:
+[
+  {
+    "title": "Task title here",
+    "description": "Brief description",
+    "priority": "high",
+    "column": "To Do"
+  }
+]
+
+Rules:
+- priority must be exactly: "low", "medium", or "high"
+- column must be exactly: "To Do", "In Progress", or "Done"
+- Most cards should go to "To Do"
+- Make titles specific and actionable
+- Keep descriptions under 100 characters`
+          }]
+        })
+      });
+      const data = await response.json();
+      const text = data.content[0].text;
+      const clean = text.replace(/```json|```/g, '').trim();
+      const cards = JSON.parse(clean);
+      setAiCards(cards);
+    } catch (err) {
+      toast.error('AI generation failed. Try again!');
+      console.error(err);
+    } finally {
+      setAiGenerating(false);
+    }
+  };
+
+  const addAiCardsToBoard = async () => {
+    setAddingAiCards(true);
+    try {
+      for (const card of aiCards) {
+        const targetColumn = board.columns.find(
+          col => col.name === card.column
+        ) || board.columns[0];
+        await api.post(`/workspaces/columns/${targetColumn.id}/cards/`, {
+          title: card.title,
+          description: card.description,
+          priority: card.priority,
+        });
+      }
+      toast.success(`${aiCards.length} cards added to board! 🎉`);
+      setShowAIGenerator(false);
+      setAiCards([]);
+      setAiPrompt('');
+      fetchBoard();
+      fetchActivity();
+    } catch {
+      toast.error('Failed to add cards');
+    } finally {
+      setAddingAiCards(false);
     }
   };
 
@@ -267,6 +351,13 @@ export default function Board() {
           </div>
 
           <div className="ml-auto flex items-center gap-2">
+            {/* AI Generate Button */}
+            <button
+              onClick={() => setShowAIGenerator(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border bg-gradient-to-r from-indigo-600/20 to-purple-600/20 border-indigo-500/30 text-indigo-300 hover:text-white hover:border-indigo-400/50 transition"
+            >
+              ✨ AI Generate
+            </button>
             <button
               onClick={() => setShowActivity(!showActivity)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border bg-white/5 border-white/10 text-gray-300 hover:text-white hover:border-white/20 transition"
@@ -314,7 +405,6 @@ export default function Board() {
                   key={column.id}
                   className={`bg-white/5 backdrop-blur-xl border ${colStyle.border} rounded-2xl p-4 min-w-[300px] w-[300px] md:min-w-80 md:w-80 flex-shrink-0 flex flex-col snap-start`}
                 >
-                  {/* Column Header */}
                   <div className="flex justify-between items-center mb-4">
                     <div className="flex items-center gap-2">
                       <div className={`w-2 h-2 rounded-full ${colStyle.dot}`} />
@@ -327,7 +417,6 @@ export default function Board() {
                     </span>
                   </div>
 
-                  {/* Cards */}
                   <Droppable droppableId={String(column.id)}>
                     {(provided, snapshot) => (
                       <div
@@ -402,7 +491,6 @@ export default function Board() {
                     )}
                   </Droppable>
 
-                  {/* Add Card */}
                   {addingCard === column.id ? (
                     <div className="mt-2">
                       <input
@@ -465,9 +553,7 @@ export default function Board() {
           </div>
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
             {activityLog.length === 0 ? (
-              <p className="text-gray-500 text-sm text-center mt-8">
-                No activity yet
-              </p>
+              <p className="text-gray-500 text-sm text-center mt-8">No activity yet</p>
             ) : (
               activityLog.map((log) => (
                 <div key={log.id} className="flex gap-3">
@@ -500,23 +586,17 @@ export default function Board() {
                 ✕
               </button>
             </div>
-
             <div className="space-y-4">
               <div>
-                <label className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-1 block">
-                  Title
-                </label>
+                <label className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-1 block">Title</label>
                 <input
                   value={editingCard.title || ''}
                   onChange={(e) => setEditingCard({ ...editingCard, title: e.target.value })}
                   className="w-full bg-white/5 border border-white/10 text-white rounded-xl px-4 py-3 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition"
                 />
               </div>
-
               <div>
-                <label className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-1 block">
-                  Description
-                </label>
+                <label className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-1 block">Description</label>
                 <textarea
                   value={editingCard.description || ''}
                   onChange={(e) => setEditingCard({ ...editingCard, description: e.target.value })}
@@ -525,12 +605,9 @@ export default function Board() {
                   className="w-full bg-white/5 border border-white/10 text-white rounded-xl px-4 py-3 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition placeholder-gray-600 resize-none"
                 />
               </div>
-
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-1 block">
-                    Priority
-                  </label>
+                  <label className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-1 block">Priority</label>
                   <select
                     value={editingCard.priority || 'medium'}
                     onChange={(e) => setEditingCard({ ...editingCard, priority: e.target.value })}
@@ -541,11 +618,8 @@ export default function Board() {
                     <option value="high" className="bg-gray-900">🔴 High</option>
                   </select>
                 </div>
-
                 <div>
-                  <label className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-1 block">
-                    Due Date
-                  </label>
+                  <label className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-1 block">Due Date</label>
                   <input
                     type="date"
                     value={editingCard.due_date || ''}
@@ -554,7 +628,6 @@ export default function Board() {
                   />
                 </div>
               </div>
-
               <div className="flex gap-3 pt-2">
                 <button
                   onClick={updateCard}
@@ -574,6 +647,149 @@ export default function Board() {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* AI Card Generator Modal */}
+      {showAIGenerator && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#1a1a2e] border border-white/10 rounded-3xl p-8 w-full max-w-2xl shadow-2xl">
+            <div className="flex justify-between items-center mb-6">
+              <div>
+                <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                  ✨ AI Card Generator
+                </h2>
+                <p className="text-gray-400 text-sm mt-1">
+                  Describe your project and AI will create cards for you
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowAIGenerator(false);
+                  setAiCards([]);
+                  setAiPrompt('');
+                }}
+                className="text-gray-400 hover:text-white transition bg-white/5 hover:bg-white/10 rounded-xl p-2"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="mb-4">
+              <label className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-2 block">
+                Describe your project or feature
+              </label>
+              <textarea
+                value={aiPrompt}
+                onChange={(e) => setAiPrompt(e.target.value)}
+                placeholder="e.g. Build a user authentication system with login, register, forgot password and JWT tokens..."
+                rows={3}
+                className="w-full bg-white/5 border border-white/10 text-white rounded-xl px-4 py-3 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition placeholder-gray-600 resize-none"
+              />
+            </div>
+
+            {!aiCards.length && (
+              <button
+                onClick={generateCardsWithAI}
+                disabled={aiGenerating || !aiPrompt.trim()}
+                className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold py-3.5 rounded-xl transition-all hover:scale-[1.02] disabled:opacity-50 disabled:hover:scale-100 shadow-lg shadow-indigo-500/30 mb-4"
+              >
+                {aiGenerating ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                    </svg>
+                    AI is thinking...
+                  </span>
+                ) : (
+                  '✨ Generate Cards'
+                )}
+              </button>
+            )}
+
+            {aiCards.length > 0 && (
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-white font-semibold">
+                    ✅ {aiCards.length} cards generated — review before adding:
+                  </h3>
+                  <button
+                    onClick={() => { setAiCards([]); setAiPrompt(''); }}
+                    className="text-gray-400 hover:text-white text-xs transition"
+                  >
+                    Regenerate
+                  </button>
+                </div>
+
+                <div className="space-y-2 max-h-72 overflow-y-auto mb-4">
+                  {aiCards.map((card, index) => {
+                    const priorityColors = {
+                      high: 'text-red-400 bg-red-500/10 border-red-500/20',
+                      medium: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
+                      low: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
+                    };
+                    const columnColors = {
+                      'To Do': 'text-indigo-400',
+                      'In Progress': 'text-amber-400',
+                      'Done': 'text-emerald-400',
+                    };
+                    return (
+                      <div
+                        key={index}
+                        className="bg-white/5 border border-white/10 rounded-xl p-4 flex items-start justify-between gap-4"
+                      >
+                        <div className="flex-1">
+                          <p className="text-white text-sm font-medium mb-1">{card.title}</p>
+                          {card.description && (
+                            <p className="text-gray-500 text-xs">{card.description}</p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${priorityColors[card.priority]}`}>
+                            {card.priority}
+                          </span>
+                          <span className={`text-xs font-semibold ${columnColors[card.column]}`}>
+                            {card.column}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={addAiCardsToBoard}
+                    disabled={addingAiCards}
+                    className="flex-1 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold py-3 rounded-xl transition-all hover:scale-[1.02] disabled:opacity-50 shadow-lg shadow-indigo-500/30"
+                  >
+                    {addingAiCards ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                        </svg>
+                        Adding cards...
+                      </span>
+                    ) : (
+                      `➕ Add All ${aiCards.length} Cards to Board`
+                    )}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowAIGenerator(false);
+                      setAiCards([]);
+                      setAiPrompt('');
+                    }}
+                    className="bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 font-semibold px-4 py-3 rounded-xl transition"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
