@@ -33,6 +33,7 @@ export default function Board() {
   const [selectedCard, setSelectedCard] = useState(null);
   const [editingCard, setEditingCard] = useState({});
   const [savingCard, setSavingCard] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // ✅ ALL FUNCTIONS BEFORE EFFECTS
   const fetchBoard = useCallback(async () => {
@@ -194,6 +195,17 @@ export default function Board() {
     return () => ws.close();
   }, [workspaceId]);
 
+  // ✅ COMPUTED VALUES AFTER EFFECTS
+  const filteredColumns = board ? board.columns.map((col) => ({
+    ...col,
+    cards: col.cards.filter((card) =>
+      card.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      card.description?.toLowerCase().includes(searchQuery.toLowerCase())
+    ),
+  })) : [];
+
+  const totalFilteredCards = filteredColumns.reduce((acc, col) => acc + col.cards.length, 0);
+
   // ✅ EARLY RETURN AFTER ALL HOOKS
   if (!board) return (
     <div className="min-h-screen bg-[#0f0f1a] flex items-center justify-center">
@@ -234,6 +246,26 @@ export default function Board() {
           </div>
           <div className="h-5 w-px bg-white/20" />
           <h1 className="text-lg font-bold text-white">{board.name}</h1>
+
+          {/* Search Bar */}
+          <div className="relative hidden sm:block">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">🔍</span>
+            <input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search cards..."
+              className="bg-white/5 border border-white/10 text-white rounded-xl pl-8 pr-8 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition placeholder-gray-600 w-48"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition text-xs"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+
           <div className="ml-auto flex items-center gap-2">
             <button
               onClick={() => setShowActivity(!showActivity)}
@@ -253,11 +285,29 @@ export default function Board() {
         </div>
       </nav>
 
+      {/* Search indicator */}
+      {searchQuery && (
+        <div className="relative px-6 pt-4">
+          <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-xl px-4 py-2 flex items-center justify-between">
+            <p className="text-indigo-400 text-sm">
+              🔍 Results for <span className="font-bold">"{searchQuery}"</span>
+              {' '}— <span className="font-bold">{totalFilteredCards}</span> card(s) found
+            </p>
+            <button
+              onClick={() => setSearchQuery('')}
+              className="text-indigo-400 hover:text-white text-xs transition"
+            >
+              Clear ✕
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Kanban Board */}
       <div className="relative p-6">
         <DragDropContext onDragEnd={handleDragEnd}>
           <div className="flex gap-4 overflow-x-auto pb-6 snap-x snap-mandatory">
-            {board.columns.map((column, colIndex) => {
+            {filteredColumns.map((column, colIndex) => {
               const colStyle = COLUMN_COLORS[colIndex % COLUMN_COLORS.length];
               return (
                 <div
