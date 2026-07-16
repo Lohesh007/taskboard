@@ -492,13 +492,17 @@ def generate_ai_cards(request, board_id):
         return Response({'error': 'Prompt is required'}, status=400)
 
     try:
+        from groq import Groq
         import json
-        import urllib.request
-        import ssl
 
-        payload = json.dumps({
-            "model": "llama3-8b-8192",
-            "messages": [{
+        groq_key = os.environ.get('GROQ_API_KEY', '')
+        print(f"GROQ KEY LENGTH: {len(groq_key)}")
+
+        client = Groq(api_key=groq_key)
+
+        completion = client.chat.completions.create(
+            model="llama3-8b-8192",
+            messages=[{
                 "role": "user",
                 "content": f"""You are a project management assistant. Generate 5-8 Kanban cards for this project.
 
@@ -521,25 +525,11 @@ Rules:
 - Make titles specific and actionable
 - Keep descriptions under 100 characters"""
             }],
-            "temperature": 0.7,
-            "max_tokens": 1000
-        }).encode('utf-8')
-
-        req = urllib.request.Request(
-            'https://api.groq.com/openai/v1/chat/completions',
-            data=payload,
-            headers={
-                'Authorization': f'Bearer {settings.GROQ_API_KEY}',
-                'Content-Type': 'application/json'
-            },
-            method='POST'
+            temperature=0.7,
+            max_tokens=1000
         )
 
-        ctx = ssl.create_default_context()
-        with urllib.request.urlopen(req, context=ctx, timeout=30) as response:
-            data = json.loads(response.read().decode('utf-8'))
-
-        text = data['choices'][0]['message']['content']
+        text = completion.choices[0].message.content
         clean = text.replace('```json', '').replace('```', '').strip()
         cards = json.loads(clean)
         return Response({'cards': cards})
