@@ -14,6 +14,7 @@ from .serializers import (
 from .models import WorkspaceMember as WM
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
+import os
 import ssl
 import urllib.request
 import json
@@ -528,7 +529,7 @@ Rules:
             'https://api.groq.com/openai/v1/chat/completions',
             data=payload,
             headers={
-                'Authorization': f'Bearer {os.environ.get("GROQ_API_KEY", "")}',
+                'Authorization': f'Bearer {settings.GROQ_API_KEY}',
                 'Content-Type': 'application/json'
             },
             method='POST'
