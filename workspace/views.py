@@ -491,15 +491,15 @@ def generate_ai_cards(request, board_id):
         return Response({'error': 'Prompt is required'}, status=400)
 
     try:
-        import anthropic
-        client = anthropic.Anthropic(api_key=settings.CLAUDE_API_KEY)
+        import json
+        import urllib.request
+        import ssl
 
-        message = client.messages.create(
-            model="claude-sonnet-4-6",
-            max_tokens=1000,
-            messages=[{
+        payload = json.dumps({
+            "model": "llama3-8b-8192",
+            "messages": [{
                 "role": "user",
-                "content": f"""You are a project management assistant. Based on this project description, generate 5-8 tasks as Kanban cards.
+                "content": f"""You are a project management assistant. Generate 5-8 Kanban cards for this project.
 
 Project: "{prompt}"
 
@@ -519,13 +519,27 @@ Rules:
 - Most cards should go to "To Do"
 - Make titles specific and actionable
 - Keep descriptions under 100 characters"""
-            }]
+            }],
+            "temperature": 0.7,
+            "max_tokens": 1000
+        }).encode('utf-8')
+
+        req = urllib.request.Request(
+            'https://api.groq.com/openai/v1/chat/completions',
+            data=payload,
+            headers={
+                'Authorization': f'Bearer {os.environ.get("GROQ_API_KEY", "")}',
+                'Content-Type': 'application/json'
+            },
+            method='POST'
         )
 
-        text = message.content[0].text
-        clean = text.replace('```json', '').replace('```', '').strip()
+        ctx = ssl.create_default_context()
+        with urllib.request.urlopen(req, context=ctx, timeout=30) as response:
+            data = json.loads(response.read().decode('utf-8'))
 
-        import json
+        text = data['choices'][0]['message']['content']
+        clean = text.replace('```json', '').replace('```', '').strip()
         cards = json.loads(clean)
         return Response({'cards': cards})
 
