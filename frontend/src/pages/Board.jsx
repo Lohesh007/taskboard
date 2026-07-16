@@ -139,57 +139,21 @@ export default function Board() {
   };
 
   const generateCardsWithAI = async () => {
-    if (!aiPrompt.trim()) return;
-    setAiGenerating(true);
-    setAiCards([]);
-    try {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': process.env.REACT_APP_CLAUDE_API_KEY,
-          'anthropic-version': '2023-06-01',
-        },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-6',
-          max_tokens: 1000,
-          messages: [{
-            role: 'user',
-            content: `You are a project management assistant. Based on this project description, generate 5-8 tasks as Kanban cards.
-
-Project: "${aiPrompt}"
-
-Respond ONLY with a valid JSON array, no markdown, no explanation:
-[
-  {
-    "title": "Task title here",
-    "description": "Brief description",
-    "priority": "high",
-    "column": "To Do"
+  if (!aiPrompt.trim()) return;
+  setAiGenerating(true);
+  setAiCards([]);
+  try {
+    const res = await api.post(`/workspaces/boards/${boardId}/ai-generate/`, {
+      prompt: aiPrompt
+    });
+    setAiCards(res.data.cards);
+  } catch (err) {
+    toast.error('AI generation failed. Try again!');
+    console.error(err);
+  } finally {
+    setAiGenerating(false);
   }
-]
-
-Rules:
-- priority must be exactly: "low", "medium", or "high"
-- column must be exactly: "To Do", "In Progress", or "Done"
-- Most cards should go to "To Do"
-- Make titles specific and actionable
-- Keep descriptions under 100 characters`
-          }]
-        })
-      });
-      const data = await response.json();
-      const text = data.content[0].text;
-      const clean = text.replace(/```json|```/g, '').trim();
-      const cards = JSON.parse(clean);
-      setAiCards(cards);
-    } catch (err) {
-      toast.error('AI generation failed. Try again!');
-      console.error(err);
-    } finally {
-      setAiGenerating(false);
-    }
-  };
+};
 
   const addAiCardsToBoard = async () => {
     setAddingAiCards(true);

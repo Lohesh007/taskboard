@@ -26,4 +26,5 @@ urlpatterns = [
     path('<int:workspace_id>/members/<int:member_id>/', views.member_detail, name='member-detail'),
     path('invite/<str:token>/', views.get_invite_details, name='invite-details'),
     path('invite/<str:token>/accept/', views.accept_invite, name='accept-invite'),
+    path('boards/<int:board_id>/ai-generate/', views.generate_ai_cards, name='ai-generate'),
 ]

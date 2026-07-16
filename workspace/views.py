@@ -477,3 +477,58 @@ def member_detail(request, workspace_id, member_id):
             f"{request.user.username} removed {username} from workspace"
         )
         return Response(status=204)
+    
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def generate_ai_cards(request, board_id):
+    try:
+        board = Board.objects.get(pk=board_id, workspace__members=request.user)
+    except Board.DoesNotExist:
+        return Response({'error': 'Board not found'}, status=404)
+
+    prompt = request.data.get('prompt', '').strip()
+    if not prompt:
+        return Response({'error': 'Prompt is required'}, status=400)
+
+    try:
+        import anthropic
+        client = anthropic.Anthropic(api_key=settings.CLAUDE_API_KEY)
+
+        message = client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=1000,
+            messages=[{
+                "role": "user",
+                "content": f"""You are a project management assistant. Based on this project description, generate 5-8 tasks as Kanban cards.
+
+Project: "{prompt}"
+
+Respond ONLY with a valid JSON array, no markdown, no explanation:
+[
+  {{
+    "title": "Task title here",
+    "description": "Brief description",
+    "priority": "high",
+    "column": "To Do"
+  }}
+]
+
+Rules:
+- priority must be exactly: "low", "medium", or "high"
+- column must be exactly: "To Do", "In Progress", or "Done"
+- Most cards should go to "To Do"
+- Make titles specific and actionable
+- Keep descriptions under 100 characters"""
+            }]
+        )
+
+        text = message.content[0].text
+        clean = text.replace('```json', '').replace('```', '').strip()
+
+        import json
+        cards = json.loads(clean)
+        return Response({'cards': cards})
+
+    except Exception as e:
+        print(f"AI error: {str(e)}")
+        return Response({'error': f'AI generation failed: {str(e)}'}, status=500)

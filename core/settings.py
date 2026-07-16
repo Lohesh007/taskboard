@@ -126,3 +126,4 @@ SIMPLE_JWT = {
 SENDGRID_API_KEY = os.environ.get('SENDGRID_API_KEY', '')
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', '')
 FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:3000')
+CLAUDE_API_KEY = os.environ.get('CLAUDE_API_KEY', '')
