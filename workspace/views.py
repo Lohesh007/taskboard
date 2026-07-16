@@ -492,17 +492,12 @@ def generate_ai_cards(request, board_id):
         return Response({'error': 'Prompt is required'}, status=400)
 
     try:
-        from groq import Groq
-        import json
-
         groq_key = os.environ.get('GROQ_API_KEY', '')
-        print(f"GROQ KEY LENGTH: {len(groq_key)}")
+        print(f"GROQ KEY EXISTS: {bool(groq_key)}, LENGTH: {len(groq_key)}")
 
-        client = Groq(api_key=groq_key)
-
-        completion = client.chat.completions.create(
-            model="llama3-8b-8192",
-            messages=[{
+        payload = json.dumps({
+            "model": "llama3-8b-8192",
+            "messages": [{
                 "role": "user",
                 "content": f"""You are a project management assistant. Generate 5-8 Kanban cards for this project.
 
@@ -525,15 +520,41 @@ Rules:
 - Make titles specific and actionable
 - Keep descriptions under 100 characters"""
             }],
-            temperature=0.7,
-            max_tokens=1000
+            "temperature": 0.7,
+            "max_tokens": 1000
+        }).encode('utf-8')
+
+        import urllib.request
+        import urllib.error
+        import ssl
+
+        ctx = ssl.create_default_context()
+        req = urllib.request.Request(
+            'https://api.groq.com/openai/v1/chat/completions',
+            data=payload,
+            headers={
+                'Authorization': f'Bearer {groq_key}',
+                'Content-Type': 'application/json',
+                'User-Agent': 'TaskBoard/1.0'
+            },
+            method='POST'
         )
 
-        text = completion.choices[0].message.content
+        with urllib.request.urlopen(req, context=ctx, timeout=30) as response:
+            result = json.loads(response.read().decode('utf-8'))
+
+        text = result['choices'][0]['message']['content']
         clean = text.replace('```json', '').replace('```', '').strip()
         cards = json.loads(clean)
         return Response({'cards': cards})
 
+    except urllib.error.HTTPError as e:
+        error_body = e.read().decode('utf-8')
+        print(f"HTTP Error {e.code}: {error_body}")
+        return Response({'error': f'HTTP {e.code}: {error_body}'}, status=500)
+    except urllib.error.URLError as e:
+        print(f"URL Error: {str(e)}")
+        return Response({'error': f'Connection failed: {str(e)}'}, status=500)
     except Exception as e:
         print(f"AI error: {str(e)}")
         return Response({'error': f'AI generation failed: {str(e)}'}, status=500)
