@@ -39,6 +39,10 @@ export default function Board() {
   const [aiGenerating, setAiGenerating] = useState(false);
   const [aiCards, setAiCards] = useState([]);
   const [addingAiCards, setAddingAiCards] = useState(false);
+  const [comments, setComments] = useState([]);
+  const [newComment, setNewComment] = useState('');
+  const [loadingComments, setLoadingComments] = useState(false);
+  const [postingComment, setPostingComment] = useState(false);
 
   // ✅ ALL FUNCTIONS BEFORE EFFECTS
   const fetchBoard = useCallback(async () => {
@@ -59,12 +63,54 @@ export default function Board() {
     }
   }, [workspaceId]);
 
+  const fetchComments = async (cardId) => {
+    setLoadingComments(true);
+    try {
+      const res = await api.get(`/workspaces/cards/${cardId}/comments/`);
+      setComments(res.data);
+    } catch {
+      console.log('Failed to load comments');
+    } finally {
+      setLoadingComments(false);
+    }
+  };
+
+  const postComment = async (cardId) => {
+    if (!newComment.trim()) return;
+    setPostingComment(true);
+    try {
+      const res = await api.post(`/workspaces/cards/${cardId}/comments/`, {
+        text: newComment
+      });
+      setComments((prev) => [...prev, res.data]);
+      setNewComment('');
+      toast.success('Comment added!');
+      fetchActivity();
+    } catch {
+      toast.error('Failed to add comment');
+    } finally {
+      setPostingComment(false);
+    }
+  };
+
+  const deleteComment = async (commentId) => {
+    try {
+      await api.delete(`/workspaces/comments/${commentId}/`);
+      setComments((prev) => prev.filter((c) => c.id !== commentId));
+      toast.success('Comment deleted');
+    } catch {
+      toast.error('Failed to delete comment');
+    }
+  };
+
   const updateCard = async () => {
     setSavingCard(true);
     try {
       await api.put(`/workspaces/cards/${selectedCard.id}/`, editingCard);
       toast.success('Card updated!');
       setSelectedCard(null);
+      setComments([]);
+      setNewComment('');
       fetchBoard();
       fetchActivity();
     } catch {
@@ -139,21 +185,21 @@ export default function Board() {
   };
 
   const generateCardsWithAI = async () => {
-  if (!aiPrompt.trim()) return;
-  setAiGenerating(true);
-  setAiCards([]);
-  try {
-    const res = await api.post(`/workspaces/boards/${boardId}/ai-generate/`, {
-      prompt: aiPrompt
-    });
-    setAiCards(res.data.cards);
-  } catch (err) {
-    toast.error('AI generation failed. Try again!');
-    console.error(err);
-  } finally {
-    setAiGenerating(false);
-  }
-};
+    if (!aiPrompt.trim()) return;
+    setAiGenerating(true);
+    setAiCards([]);
+    try {
+      const res = await api.post(`/workspaces/boards/${boardId}/ai-generate/`, {
+        prompt: aiPrompt
+      });
+      setAiCards(res.data.cards);
+    } catch (err) {
+      toast.error('AI generation failed. Try again!');
+      console.error(err);
+    } finally {
+      setAiGenerating(false);
+    }
+  };
 
   const addAiCardsToBoard = async () => {
     setAddingAiCards(true);
@@ -315,7 +361,6 @@ export default function Board() {
           </div>
 
           <div className="ml-auto flex items-center gap-2">
-            {/* AI Generate Button */}
             <button
               onClick={() => setShowAIGenerator(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border bg-gradient-to-r from-indigo-600/20 to-purple-600/20 border-indigo-500/30 text-indigo-300 hover:text-white hover:border-indigo-400/50 transition"
@@ -413,6 +458,7 @@ export default function Board() {
                                       priority: card.priority,
                                       due_date: card.due_date || '',
                                     });
+                                    fetchComments(card.id);
                                   }}
                                   className={`bg-white/8 border border-white/10 rounded-xl p-4 mb-3 cursor-pointer transition-all duration-200 group hover:border-white/20 hover:bg-white/10 ${
                                     snapshot.isDragging
@@ -540,17 +586,23 @@ export default function Board() {
       {/* Card Detail Modal */}
       {selectedCard && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-[#1a1a2e] border border-white/10 rounded-3xl p-8 w-full max-w-lg shadow-2xl">
+          <div className="bg-[#1a1a2e] border border-white/10 rounded-3xl p-8 w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-bold text-white">Card Details</h2>
               <button
-                onClick={() => setSelectedCard(null)}
+                onClick={() => {
+                  setSelectedCard(null);
+                  setComments([]);
+                  setNewComment('');
+                }}
                 className="text-gray-400 hover:text-white transition bg-white/5 hover:bg-white/10 rounded-xl p-2"
               >
                 ✕
               </button>
             </div>
+
             <div className="space-y-4">
+              {/* Title */}
               <div>
                 <label className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-1 block">Title</label>
                 <input
@@ -559,6 +611,8 @@ export default function Board() {
                   className="w-full bg-white/5 border border-white/10 text-white rounded-xl px-4 py-3 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition"
                 />
               </div>
+
+              {/* Description */}
               <div>
                 <label className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-1 block">Description</label>
                 <textarea
@@ -569,6 +623,8 @@ export default function Board() {
                   className="w-full bg-white/5 border border-white/10 text-white rounded-xl px-4 py-3 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition placeholder-gray-600 resize-none"
                 />
               </div>
+
+              {/* Priority + Due Date */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-1 block">Priority</label>
@@ -592,6 +648,8 @@ export default function Board() {
                   />
                 </div>
               </div>
+
+              {/* Save / Delete */}
               <div className="flex gap-3 pt-2">
                 <button
                   onClick={updateCard}
@@ -604,11 +662,82 @@ export default function Board() {
                   onClick={() => {
                     deleteCard(selectedCard.id);
                     setSelectedCard(null);
+                    setComments([]);
                   }}
                   className="bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 font-bold px-4 py-3 rounded-xl transition"
                 >
                   🗑️
                 </button>
+              </div>
+
+              {/* ✅ Comments Section */}
+              <div className="pt-4 border-t border-white/10">
+                <h3 className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-3">
+                  💬 Comments ({comments.length})
+                </h3>
+
+                {/* Comments List */}
+                <div className="space-y-3 max-h-48 overflow-y-auto mb-3">
+                  {loadingComments ? (
+                    <p className="text-gray-500 text-sm text-center py-4">
+                      Loading comments...
+                    </p>
+                  ) : comments.length === 0 ? (
+                    <p className="text-gray-600 text-sm text-center py-4">
+                      No comments yet. Be the first!
+                    </p>
+                  ) : (
+                    comments.map((comment) => (
+                      <div key={comment.id} className="flex gap-3 group">
+                        <div className="w-7 h-7 bg-indigo-600/30 rounded-lg flex items-center justify-center text-xs flex-shrink-0">
+                          {comment.user.avatar}
+                        </div>
+                        <div className="flex-1 bg-white/5 rounded-xl px-3 py-2">
+                          <div className="flex justify-between items-center mb-1">
+                            <span className="text-indigo-400 text-xs font-semibold">
+                              {comment.user.username}
+                            </span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-gray-600 text-xs">
+                                {new Date(comment.created_at).toLocaleString()}
+                              </span>
+                              <button
+                                onClick={() => deleteComment(comment.id)}
+                                className="text-gray-600 hover:text-red-400 transition text-xs opacity-0 group-hover:opacity-100"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          </div>
+                          <p className="text-gray-300 text-sm">{comment.text}</p>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                {/* Add Comment */}
+                <div className="flex gap-2">
+                  <input
+                    value={newComment}
+                    onChange={(e) => setNewComment(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        postComment(selectedCard.id);
+                      }
+                    }}
+                    placeholder="Write a comment... (Enter to post)"
+                    className="flex-1 bg-white/5 border border-white/10 text-white rounded-xl px-3 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition placeholder-gray-600"
+                  />
+                  <button
+                    onClick={() => postComment(selectedCard.id)}
+                    disabled={postingComment || !newComment.trim()}
+                    className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition disabled:opacity-50"
+                  >
+                    {postingComment ? '...' : 'Post'}
+                  </button>
+                </div>
               </div>
             </div>
           </div>

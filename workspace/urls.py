@@ -27,4 +27,6 @@ urlpatterns = [
     path('invite/<str:token>/', views.get_invite_details, name='invite-details'),
     path('invite/<str:token>/accept/', views.accept_invite, name='accept-invite'),
     path('boards/<int:board_id>/ai-generate/', views.generate_ai_cards, name='ai-generate'),
+    path('cards/<int:card_id>/comments/', views.card_comments, name='card-comments'),
+    path('comments/<int:comment_id>/', views.delete_comment, name='delete-comment'),
 ]

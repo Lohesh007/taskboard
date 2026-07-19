@@ -60,3 +60,10 @@ class ActivityLogSerializer(serializers.ModelSerializer):
 class InviteSerializer(serializers.Serializer):
     email = serializers.EmailField()
     role = serializers.ChoiceField(choices=['admin', 'member', 'viewer'], default='member')
+
+class CardCommentSerializer(serializers.ModelSerializer):
+    user = UserSerializer(read_only=True)
+
+    class Meta:
+        model = CardComment
+        fields = ['id', 'user', 'text', 'created_at']

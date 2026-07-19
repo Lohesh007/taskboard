@@ -558,3 +558,54 @@ Rules:
     except Exception as e:
         print(f"AI error: {str(e)}")
         return Response({'error': f'AI generation failed: {str(e)}'}, status=500)
+    
+
+from .models import CardComment
+from .serializers import CardCommentSerializer
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def card_comments(request, card_id):
+    try:
+        card = Card.objects.get(pk=card_id, column__board__workspace__members=request.user)
+    except Card.DoesNotExist:
+        return Response({'error': 'Card not found'}, status=404)
+
+    if request.method == 'GET':
+        comments = CardComment.objects.filter(card=card)
+        return Response(CardCommentSerializer(comments, many=True).data)
+
+    if request.method == 'POST':
+        text = request.data.get('text', '').strip()
+        if not text:
+            return Response({'error': 'Comment cannot be empty'}, status=400)
+
+        comment = CardComment.objects.create(
+            card=card,
+            user=request.user,
+            text=text
+        )
+        log_activity(
+            card.column.board.workspace,
+            request.user,
+            f"{request.user.username} commented on '{card.title}'"
+        )
+        return Response(CardCommentSerializer(comment).data, status=201)
+
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def delete_comment(request, comment_id):
+    try:
+        comment = CardComment.objects.get(
+            pk=comment_id,
+            card__column__board__workspace__members=request.user
+        )
+    except CardComment.DoesNotExist:
+        return Response({'error': 'Comment not found'}, status=404)
+
+    if comment.user != request.user:
+        return Response({'error': 'You can only delete your own comments'}, status=403)
+
+    comment.delete()
+    return Response(status=204)

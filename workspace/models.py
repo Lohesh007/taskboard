@@ -109,3 +109,16 @@ class WorkspaceInvite(models.Model):
 
     def __str__(self):
         return f"{self.email} → {self.workspace.name} ({self.status})"
+
+
+class CardComment(models.Model):
+    card = models.ForeignKey(Card, on_delete=models.CASCADE, related_name='comments')
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    text = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f"{self.user.username}: {self.text[:50]}"
