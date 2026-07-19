@@ -496,7 +496,7 @@ def generate_ai_cards(request, board_id):
         print(f"GROQ KEY EXISTS: {bool(groq_key)}, LENGTH: {len(groq_key)}")
 
         payload = json.dumps({
-            "model": "llama3-8b-8192",
+           "model": "llama-3.1-8b-instant",
             "messages": [{
                 "role": "user",
                 "content": f"""You are a project management assistant. Generate 5-8 Kanban cards for this project.
