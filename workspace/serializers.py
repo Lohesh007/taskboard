@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Workspace, WorkspaceMember, Board, Column, Card, ActivityLog
+from .models import Workspace, WorkspaceMember, Board, Column, Card, ActivityLog, CardComment
 from users.serializers import UserSerializer
 
 
