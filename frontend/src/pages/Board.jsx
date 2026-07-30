@@ -4,6 +4,8 @@ import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import api from '../api/axios';
 import toast from 'react-hot-toast';
+import ThemeToggle from '../components/ThemeToggle';
+import { useTheme } from '../context/ThemeContext';
 
 const PRIORITY_STYLES = {
   low: { bg: 'bg-emerald-500/20', text: 'text-emerald-400', dot: 'bg-emerald-400', label: 'Low' },
@@ -22,6 +24,7 @@ export default function Board() {
   const [searchParams] = useSearchParams();
   const workspaceId = searchParams.get('workspace');
   const navigate = useNavigate();
+  const { isDark } = useTheme();
 
   // ✅ ALL STATES AT TOP
   const [board, setBoard] = useState(null);
@@ -314,7 +317,7 @@ export default function Board() {
   );
 
   return (
-    <div className="min-h-screen bg-[#0f0f1a] text-white">
+    <div className={`min-h-screen ${isDark ? 'bg-[#0f0f1a] text-white' : 'bg-gray-50 text-gray-900'} transition-colors duration-300`}>
       {/* Background */}
       <div className="fixed top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
         <div className="absolute top-[-20%] left-[-10%] w-96 h-96 bg-indigo-600 rounded-full opacity-10 blur-3xl" />
@@ -361,6 +364,7 @@ export default function Board() {
           </div>
 
           <div className="ml-auto flex items-center gap-2">
+            <ThemeToggle />
             <button
               onClick={() => setShowAIGenerator(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border bg-gradient-to-r from-indigo-600/20 to-purple-600/20 border-indigo-500/30 text-indigo-300 hover:text-white hover:border-indigo-400/50 transition"
@@ -648,6 +652,23 @@ export default function Board() {
                   />
                 </div>
               </div>
+              {/* Move to Column */}
+                <div>
+                  <label className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-1 block">
+                    Move to Column
+                  </label>
+                  <select
+                    value={editingCard.column || selectedCard.column}
+                    onChange={(e) => setEditingCard({ ...editingCard, column: parseInt(e.target.value) })}
+                    className="w-full bg-white/5 border border-white/10 text-white rounded-xl px-4 py-3 outline-none focus:border-indigo-500 transition"
+                  >
+                    {board.columns.map((col) => (
+                      <option key={col.id} value={col.id} className="bg-gray-900">
+                        {col.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
               {/* Save / Delete */}
               <div className="flex gap-3 pt-2">

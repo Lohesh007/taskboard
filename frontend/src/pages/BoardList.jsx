@@ -3,6 +3,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 import toast from 'react-hot-toast';
+import ThemeToggle from '../components/ThemeToggle';
+import { useTheme } from '../context/ThemeContext';
 
 export default function BoardList() {
   const { workspaceId } = useParams();
@@ -10,6 +12,7 @@ export default function BoardList() {
   const [newBoardName, setNewBoardName] = useState('');
   const [creating, setCreating] = useState(false);
   const navigate = useNavigate();
+  const { isDark } = useTheme();
 
   const fetchWorkspace = useCallback(async () => {
     try {
@@ -69,7 +72,7 @@ export default function BoardList() {
   );
 
   return (
-    <div className="min-h-screen bg-[#0f0f1a] text-white">
+    <div className={`min-h-screen ${isDark ? 'bg-[#0f0f1a] text-white' : 'bg-gray-50 text-gray-900'} transition-colors duration-300`}>
       {/* Background */}
       <div className="fixed top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
         <div className="absolute top-[-20%] right-[-10%] w-96 h-96 bg-purple-600 rounded-full opacity-10 blur-3xl" />
@@ -85,6 +88,7 @@ export default function BoardList() {
           >
             ← Back
           </button>
+          <ThemeToggle />
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/30">
               <span className="text-lg">⚡</span>
