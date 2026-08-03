@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import api from '../api/axios';
 import toast from 'react-hot-toast';
 
@@ -16,6 +17,7 @@ export default function Workspace() {
   const [inviting, setInviting] = useState(false);
   const [members, setMembers] = useState([]);
   const { user, logout } = useAuth();
+  const { isDark, toggleTheme } = useTheme();
   const navigate = useNavigate();
 
   useEffect(() => { fetchWorkspaces(); }, []);
@@ -106,7 +108,6 @@ export default function Workspace() {
 
   return (
     <div className={`min-h-screen ${bg} transition-colors duration-300`}>
-      {/* Background blobs - only in dark mode */}
       {isDark && (
         <div className="fixed top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
           <div className="absolute top-[-20%] left-[-10%] w-96 h-96 bg-indigo-600 rounded-full opacity-10 blur-3xl" />
@@ -126,7 +127,18 @@ export default function Workspace() {
             </span>
           </div>
           <div className="flex items-center gap-3">
-            
+            {/* Theme Toggle */}
+            <button
+              onClick={toggleTheme}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all duration-300 ${
+                isDark
+                  ? 'bg-white/5 border-white/10 text-gray-300 hover:text-white'
+                  : 'bg-gray-100 border-gray-200 text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <span>{isDark ? '🌙' : '☀️'}</span>
+              <span className="hidden sm:block">{isDark ? 'Dark' : 'Light'}</span>
+            </button>
             <div className={`flex items-center gap-2 ${card} border rounded-xl px-3 py-2`}>
               <span className="text-lg">{user?.avatar}</span>
               <span className={`text-sm font-medium hidden sm:block ${subtext}`}>{user?.username}</span>
@@ -238,7 +250,7 @@ export default function Workspace() {
               </div>
               <button
                 onClick={() => { setShowInviteModal(false); setInviteEmail(''); setMembers([]); }}
-                className={`${subtext} hover:${text} transition ${isDark ? 'bg-white/5 hover:bg-white/10' : 'bg-gray-100 hover:bg-gray-200'} rounded-xl p-2`}
+                className={`${subtext} transition ${isDark ? 'bg-white/5 hover:bg-white/10' : 'bg-gray-100 hover:bg-gray-200'} rounded-xl p-2`}
               >
                 ✕
               </button>
@@ -271,7 +283,7 @@ export default function Workspace() {
               <button
                 type="submit"
                 disabled={inviting}
-                className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold py-3 rounded-xl transition-all hover:scale-[1.02] disabled:opacity-50 shadow-lg shadow-indigo-500/30"
+                className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold py-3 rounded-xl transition-all hover:scale-[1.02] disabled:opacity-50"
               >
                 {inviting ? 'Sending...' : '📧 Send Invitation'}
               </button>
