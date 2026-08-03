@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { useTheme } from '../context/ThemeContext';
 import api from '../api/axios';
 import toast from 'react-hot-toast';
 
@@ -17,7 +16,6 @@ export default function Workspace() {
   const [inviting, setInviting] = useState(false);
   const [members, setMembers] = useState([]);
   const { user, logout } = useAuth();
-  const { isDark } = useTheme();
   const navigate = useNavigate();
 
   useEffect(() => { fetchWorkspaces(); }, []);
