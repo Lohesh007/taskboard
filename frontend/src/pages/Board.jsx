@@ -4,7 +4,6 @@ import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import api from '../api/axios';
 import toast from 'react-hot-toast';
-import ThemeToggle from '../components/ThemeToggle';
 import { useTheme } from '../context/ThemeContext';
 
 const PRIORITY_STYLES = {
@@ -364,7 +363,6 @@ export default function Board() {
           </div>
 
           <div className="ml-auto flex items-center gap-2">
-            <ThemeToggle />
             <button
               onClick={() => setShowAIGenerator(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border bg-gradient-to-r from-indigo-600/20 to-purple-600/20 border-indigo-500/30 text-indigo-300 hover:text-white hover:border-indigo-400/50 transition"

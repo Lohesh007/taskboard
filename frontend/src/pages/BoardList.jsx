@@ -3,7 +3,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 import toast from 'react-hot-toast';
-import ThemeToggle from '../components/ThemeToggle';
 import { useTheme } from '../context/ThemeContext';
 
 export default function BoardList() {
@@ -88,7 +87,6 @@ export default function BoardList() {
           >
             ← Back
           </button>
-          <ThemeToggle />
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/30">
               <span className="text-lg">⚡</span>

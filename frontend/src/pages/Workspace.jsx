@@ -4,7 +4,6 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import api from '../api/axios';
 import toast from 'react-hot-toast';
-import ThemeToggle from '../components/ThemeToggle';
 
 export default function Workspace() {
   const [workspaces, setWorkspaces] = useState([]);
@@ -129,7 +128,7 @@ export default function Workspace() {
             </span>
           </div>
           <div className="flex items-center gap-3">
-            <ThemeToggle />
+            
             <div className={`flex items-center gap-2 ${card} border rounded-xl px-3 py-2`}>
               <span className="text-lg">{user?.avatar}</span>
               <span className={`text-sm font-medium hidden sm:block ${subtext}`}>{user?.username}</span>
