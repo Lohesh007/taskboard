@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 import toast from 'react-hot-toast';
+import { useTheme } from '../context/ThemeContext';
 
 export default function BoardList() {
   const { workspaceId } = useParams();
@@ -10,6 +11,7 @@ export default function BoardList() {
   const [newBoardName, setNewBoardName] = useState('');
   const [creating, setCreating] = useState(false);
   const navigate = useNavigate();
+  const { isDark, toggleTheme } = useTheme();
 
   const fetchWorkspace = useCallback(async () => {
     try {

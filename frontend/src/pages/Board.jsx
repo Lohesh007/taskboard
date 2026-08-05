@@ -4,6 +4,7 @@ import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import api from '../api/axios';
 import toast from 'react-hot-toast';
+import { useTheme } from '../context/ThemeContext';
 
 
 const PRIORITY_STYLES = {
@@ -23,6 +24,7 @@ export default function Board() {
   const [searchParams] = useSearchParams();
   const workspaceId = searchParams.get('workspace');
   const navigate = useNavigate();
+  const { isDark, toggleTheme } = useTheme();
 
 
   // ✅ ALL STATES AT TOP
